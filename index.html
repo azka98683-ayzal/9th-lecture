@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>NexusCRM · AI Enterprise Suite</title>
+    <link rel="manifest" href="data:application/manifest+json,{}">
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <!-- Font Awesome for icons (optional) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* ===== BASE & VARIABLES (white-label ready) ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        :root {
+            --bg: #f4f7fc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --primary: #1e4a76;
+            --primary-light: #3b82f6;
+            --primary-dark: #0f2c44;
+            --border: #e2e8f0;
+            --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+            --radius-lg: 1.25rem;
+            --radius-md: 1rem;
+            --radius-sm: 0.75rem;
+            --transition: all 0.2s ease;
+            --logo-text: 'NexusCRM';
+        }
+
+        body.dark {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f1f5f9;
+            --text-light: #94a3b8;
+            --border: #334155;
+            --primary: #3b82f6;
+            --primary-light: #60a5fa;
+            --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            transition: var(--transition);
+            min-height: 100vh;
+        }
+
+        /* Intro / Login Overlays */
+        .fullscreen-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            backdrop-filter: blur(2px);
+        }
+        .fullscreen-overlay.hidden { display: none; }
+        .glass-card-intro {
+            background: var(--card);
+            border-radius: var(--radius-lg);
+            padding: 2.5rem;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .glass-card-intro h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        .purpose { font-size: 1rem; line-height: 1.5; margin: 1.5rem 0; text-align: left; color: var(--text-light); }
+        .input-group { margin: 1rem 0; text-align: left; }
+        .input-group input {
+            width: 100%; padding: 0.8rem 1rem; border-radius: 60px;
+            border: 1px solid var(--border); background: var(--bg); color: var(--text);
+        }
+        .btn-large {
+            padding: 0.8rem 2rem; border-radius: 60px; font-weight: 600;
+            background: var(--primary); color: white; border: none; cursor: pointer;
+        }
+        .btn-large:hover { transform: translateY(-2px); opacity: 0.9; }
+        .error-msg { color: #ef4444; margin-top: 0.5rem; }
+
+        /* Main App Layout */
+        .app-layout { display: flex; min-height: 100vh; }
+        .sidebar {
+            width: 280px; background: var(--card); border-right: 1px solid var(--border);
+            padding: 1.8rem 0; position: fixed; height: 100vh; overflow-y: auto;
+            z-index: 100; box-shadow: var(--shadow-sm);
+        }
+        .sidebar-header { padding: 0 1.5rem 1.5rem; border-bottom: 1px solid var(--border); margin-bottom: 1.2rem; }
+        .sidebar-header h2 { font-size: 1.5rem; background: linear-gradient(135deg, var(--primary), var(--primary-light)); background-clip: text; color: transparent; }
+        .nav-tabs { display: flex; flex-direction: column; gap: 0.3rem; padding: 0 1rem; }
+        .nav-tab {
+            padding: 0.75rem 1rem; border-radius: var(--radius-sm); cursor: pointer;
+            font-weight: 500; color: var(--text); background: transparent; border: none;
+            width: 100%; text-align: left; transition: var(--transition);
+        }
+        .nav-tab:hover { background: var(--bg); transform: translateX(4px); }
+        .nav-tab.active { background: var(--primary); color: white; }
+        .main-content {
+            flex: 1; margin-left: 280px; padding: 1.8rem; max-width: calc(100% - 280px);
+        }
+        .top-bar {
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+            gap: 1rem; margin-bottom: 2rem; background: var(--card); padding: 0.8rem 1.5rem;
+            border-radius: var(--radius-lg); border: 1px solid var(--border);
+        }
+        .panel { display: none; animation: fadeIn 0.25s ease; }
+        .panel.active-panel { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        .glass-card {
+            background: var(--card); border-radius: var(--radius-lg); padding: 1.5rem;
+            margin-bottom: 1.5rem; border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+        }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+
+        .user-row {
+            display: flex; align-items: center; gap: 1rem; padding: 1rem;
+            background: var(--bg); border-radius: var(--radius-md); margin-bottom: 0.75rem;
+            cursor: grab; border: 1px solid var(--border);
+        }
+        .avatar-small {
+            width: 52px; height: 52px; border-radius: 50%; object-fit: cover;
+            border: 2px solid var(--primary-light);
+        }
+        .tag {
+            background: var(--primary); color: white; font-size: 0.7rem; padding: 0.2rem 0.7rem;
+            border-radius: 30px; display: inline-block; margin: 2px 3px;
+        }
+        .btn {
+            padding: 0.45rem 1.1rem; border-radius: 40px; font-weight: 500;
+            cursor: pointer; border: none; font-size: 0.85rem;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-outline:hover { background: var(--bg); }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
+            display: flex; align-items: center; justify-content: center; z-index: 1100;
+        }
+        .modal.hidden { display: none; }
+        .modal-content {
+            background: var(--card); border-radius: var(--radius-lg); padding: 2rem;
+            max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto;
+        }
+        .kanban-board { display: flex; gap: 1.2rem; overflow-x: auto; }
+        .kanban-col { min-width: 280px; background: var(--bg); border-radius: var(--radius-md); padding: 1rem; }
+        .kanban-card { background: var(--card); padding: 0.8rem; border-radius: var(--radius-sm); margin-bottom: 0.6rem; cursor: grab; }
+        input, select, textarea {
+            background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md);
+            padding: 0.6rem 1rem; color: var(--text);
+        }
+        canvas { max-height: 280px; width: 100% !important; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .cal-day { background: var(--bg); padding: 0.5rem; min-height: 60px; border-radius: 8px; }
+        .cmd-palette {
+            position: fixed; top: 20%; left: 50%; transform: translateX(-50%);
+            width: 500px; background: var(--card); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md); z-index: 3000; padding: 1rem;
+            border: 1px solid var(--border);
+        }
+        .cmd-palette.hidden { display: none; }
+        .cmd-item { padding: 0.5rem; cursor: pointer; border-radius: 8px; }
+        .cmd-item:hover { background: var(--bg); }
+    </style>
+</head>
+<body>
+
+<!-- INTRO -->
+<div id="introScreen" class="fullscreen-overlay">
+    <div class="glass-card-intro">
+        <h1>NexusCRM</h1>
+        <div style="font-size:1.2rem;">AI Enterprise Suite</div>
+        <div class="purpose">
+            <p><strong>🚀 20+ Enterprise Features:</strong> Advanced filtering, CSV import/export, custom fields, lead scoring, calendar, command palette, offline sync, white-label theming, webhooks, sentiment trends, voice notes, and more.</p>
+        </div>
+        <button id="gotoLoginBtn" class="btn-large">Proceed to Login →</button>
+    </div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="fullscreen-overlay hidden">
+    <div class="glass-card-intro">
+        <h1>Secure Access</h1>
+        <div class="input-group"><input type="text" id="loginUsername" placeholder="Username"></div>
+        <div class="input-group"><input type="password" id="loginPassword" placeholder="Password"></div>
+        <button id="performLoginBtn" class="btn-large">Login →</button>
+        <div id="loginErrorMsg" class="error-msg"></div>
+        <p style="margin-top:1rem;">Demo: any credentials</p>
+    </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp" class="app-layout" style="display: none;">
+    <div class="sidebar">
+        <div class="sidebar-header"><h2 id="logoText">NexusCRM</h2></div>
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="generator">✨ Generator</button>
+            <button class="nav-tab" data-tab="vault">📇 Vault</button>
+            <button class="nav-tab" data-tab="ai">🧠 AI Hub</button>
+            <button class="nav-tab" data-tab="tasks">✅ Tasks</button>
+            <button class="nav-tab" data-tab="kanban">📌 Kanban</button>
+            <button class="nav-tab" data-tab="analytics">📊 Analytics</button>
+            <button class="nav-tab" data-tab="calendar">📅 Calendar</button>
+            <button class="nav-tab" data-tab="settings">⚙️ Settings</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h1>NexusCRM · Enterprise AI</h1>
+            <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+                <button id="darkToggleBtn" class="btn btn-outline"><i class="fas fa-moon"></i></button>
+                <button id="undoBtn" class="btn btn-outline"><i class="fas fa-undo"></i></button>
+                <button id="redoBtn" class="btn btn-outline"><i class="fas fa-redo"></i></button>
+                <button id="cmdPaletteBtn" class="btn btn-outline"><i class="fas fa-terminal"></i> ⌘K</button>
+                <button id="exportFullBtn" class="btn btn-outline"><i class="fas fa-file-pdf"></i></button>
+                <button id="logoutBtnMain" class="btn btn-danger"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </div>
+
+        <!-- GENERATOR PANEL -->
+        <div id="generatorPanel" class="panel active-panel">
+            <div class="glass-card">
+                <div id="genProfileArea" style="text-align:center; min-height:280px;"></div>
+                <div class="flex-between"><button id="loadRandomBtn" class="btn btn-primary">🎲 Random</button><button id="quickSaveBtn" class="btn btn-outline">💾 Save</button></div>
+            </div>
+            <div class="glass-card">
+                <h3>🏷️ Smart Tagging</h3>
+                <input type="text" id="quickTags" placeholder="e.g., VIP, Lead">
+                <button id="applyTagsBtn" class="btn btn-outline">Apply</button>
+                <div style="margin-top:0.8rem"><strong>Lead Score:</strong> <span id="leadScoreDisplay">0</span></div>
+            </div>
+        </div>
+
+        <!-- VAULT PANEL -->
+        <div id="vaultPanel" class="panel">
+            <div class="glass-card">
+                <div class="flex-between">
+                    <input type="text" id="searchVaultInput" placeholder="🔍 Fuzzy search...">
+                    <div>
+                        <button id="bulkDeleteBtn" class="btn btn-danger">🗑️ Bulk</button>
+                        <button id="bulkTagBtn" class="btn btn-outline">🏷️ Bulk Tag</button>
+                        <button id="importCSVBtn" class="btn btn-outline"><i class="fas fa-upload"></i> CSV</button>
+                        <button id="exportCSVBtn" class="btn btn-outline"><i class="fas fa-download"></i></button>
+                    </div>
+                </div>
+                <div class="flex-between"><span id="vaultStats"></span> | 🎯 Points: <span id="userPoints">0</span> | 🏆 <span id="badgeArea">Explorer</span></div>
+                <!-- Filter presets -->
+                <div style="margin:0.8rem 0;">
+                    <button class="filter-preset btn btn-outline btn-sm" data-filter="all">All</button>
+                    <button class="filter-preset btn btn-outline btn-sm" data-filter="vip">VIP</button>
+                    <button class="filter-preset btn btn-outline btn-sm" data-filter="lead">Leads</button>
+                    <button class="filter-preset btn btn-outline btn-sm" data-filter="recent">Recent (7d)</button>
+                </div>
+                <div id="vaultListContainer" style="max-height:500px; overflow-y:auto;"></div>
+                <div id="paginationVault" class="flex-between"></div>
+            </div>
+            <div class="glass-card"><h3>📋 Activity Feed</h3><div id="activityLog"></div></div>
+        </div>
+
+        <!-- AI PANEL -->
+        <div id="aiPanel" class="panel">
+            <div class="glass-card">
+                <h3>🧠 AI Intelligence</h3>
+                <select id="aiUserSelect"></select>
+                <div id="aiSuggestions" style="margin-top:1rem; background:var(--bg); padding:1rem; border-radius:var(--radius-md);">
+                    <p><strong>✨ AI Suggestions:</strong></p>
+                    <div id="aiBestTags"></div><div id="aiNextAction"></div><div id="aiSentiment"></div><div id="aiSummary"></div>
+                </div>
+            </div>
+            <div class="glass-card">
+                <h3>📧 Sentiment Analysis</h3>
+                <textarea id="emailNoteInput" rows="3" placeholder="Paste email or note..."></textarea>
+                <button id="analyzeSentimentBtn" class="btn btn-primary">Analyze</button>
+                <div id="sentimentResult"></div>
+            </div>
+            <div class="glass-card">
+                <h3>🎤 Voice Note</h3>
+                <button id="startVoiceBtn" class="btn btn-outline"><i class="fas fa-microphone"></i> Start</button>
+                <button id="stopVoiceBtn" class="btn btn-outline" disabled>Stop</button>
+                <p id="voiceTranscript"></p>
+            </div>
+        </div>
+
+        <!-- TASKS PANEL -->
+        <div id="tasksPanel" class="panel">
+            <div class="glass-card">
+                <h3>✅ Task Manager</h3>
+                <div class="flex-between">
+                    <input type="text" id="newTaskTitle" placeholder="Task title">
+                    <select id="taskStatusSelect"><option>Lead</option><option>Contacted</option><option>Converted</option></select>
+                    <input type="date" id="taskDueDate">
+                    <button id="addTaskBtn" class="btn btn-primary">+ Add</button>
+                </div>
+                <div id="tasksList"></div>
+            </div>
+        </div>
+
+        <!-- KANBAN PANEL -->
+        <div id="kanbanPanel" class="panel">
+            <div class="glass-card"><h3>📌 Kanban Board</h3><div class="kanban-board" id="kanbanBoard"></div></div>
+        </div>
+
+        <!-- ANALYTICS PANEL -->
+        <div id="analyticsPanel" class="panel">
+            <div class="glass-card"><h3>📈 User Growth</h3><canvas id="realGrowthChart"></canvas></div>
+            <div class="glass-card"><h3>🏷️ Top Tags</h3><canvas id="topTagsChart"></canvas><p>📊 Conversion Rate: <strong id="conversionRate">0</strong>%</p></div>
+            <div class="glass-card"><h3>🏅 Leaderboard</h3><div id="leaderboard"></div><button id="shareLeaderboardBtn" class="btn btn-outline">📢 Share</button></div>
+            <div class="glass-card"><h3>📉 Sentiment Trend</h3><canvas id="sentimentTrendChart"></canvas></div>
+        </div>
+
+        <!-- CALENDAR PANEL -->
+        <div id="calendarPanel" class="panel">
+            <div class="glass-card">
+                <h3>📅 Tasks Calendar</h3>
+                <div class="flex-between">
+                    <button id="prevMonthBtn" class="btn btn-outline"><i class="fas fa-chevron-left"></i></button>
+                    <span id="currentMonthDisplay"></span>
+                    <button id="nextMonthBtn" class="btn btn-outline"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                <div id="calendarGrid" class="calendar-grid"></div>
+            </div>
+        </div>
+
+        <!-- SETTINGS PANEL -->
+        <div id="settingsPanel" class="panel">
+            <div class="glass-card"><h3>🔐 Role & Permissions</h3><select id="roleSelect"><option value="admin">Admin</option><option value="manager">Manager</option><option value="viewer">Viewer</option></select><button id="applyRoleBtn" class="btn btn-primary">Apply</button><p id="roleStatus"></p></div>
+            <div class="glass-card"><h3>🏷️ Global Tags</h3><div class="flex-between"><input type="text" id="newTagInput"><button id="addGlobalTagBtn" class="btn btn-outline">Add</button></div><div id="tagCloud"></div></div>
+            <div class="glass-card"><h3>🎨 White-label</h3>
+                <label>Primary Color: <input type="color" id="primaryColorPicker" value="#1e4a76"></label>
+                <label>Logo Text: <input type="text" id="logoTextInput" value="NexusCRM"></label>
+                <button id="applyThemeBtn" class="btn btn-primary">Apply</button>
+            </div>
+            <div class="glass-card"><h3>🌐 Language</h3>
+                <button id="langEn" class="btn btn-outline">English</button><button id="langHi" class="btn btn-outline">हिंदी</button><button id="langUr" class="btn btn-outline">اردو</button>
+            </div>
+            <div class="glass-card"><h3>🔔 Webhooks</h3>
+                <input type="text" id="webhookUrlInput" placeholder="https://your-webhook.url">
+                <button id="addWebhookBtn" class="btn btn-outline">Add</button>
+                <div id="webhookList"></div>
+                <button id="testWebhookBtn" class="btn btn-outline">Test</button>
+                <pre id="webhookLog"></pre>
+            </div>
+            <div class="glass-card"><h3>💰 Monetization</h3><p>Free: 20 users max | Pro: Unlimited</p><button id="upgradeProBtn" class="btn btn-primary">Upgrade to Pro</button><span id="planBadge" class="tag">Free Tier</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- COMMAND PALETTE -->
+<div id="cmdPalette" class="cmd-palette hidden">
+    <input type="text" id="cmdInput" placeholder="Type a command..." style="width:100%; margin-bottom:0.8rem;">
+    <div id="cmdResults"></div>
+</div>
+
+<!-- USER DETAIL MODAL -->
+<div id="userDetailModal" class="modal hidden">
+    <div class="modal-content">
+        <h2 id="detailUserName"></h2>
+        <div id="userAvatarDetail"></div>
+        <!-- Custom Fields -->
+        <h3>🔧 Custom Fields</h3>
+        <div id="customFieldsContainer"></div>
+        <button id="addCustomFieldBtn" class="btn btn-outline btn-sm">+ Add Field</button>
+        <h3>📝 Notes</h3>
+        <textarea id="userNoteInput" rows="2"></textarea>
+        <button id="addNoteBtn" class="btn btn-primary">Add Note</button>
+        <div id="userNotesList"></div>
+        <h3>⏱️ Timeline</h3>
+        <div id="userTimeline"></div>
+        <button id="closeDetailModal" class="btn btn-outline">Close</button>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ==================== GLOBAL STATE ====================
+        let vaultUsers = [];
+        let tasks = [];
+        let currentUserGen = null;
+        let undoStack = [], redoStack = [];
+        let points = 0, activityFeed = [], globalTags = ['VIP', 'Lead', 'Customer', 'Enterprise'];
+        let currentRole = 'admin', proPlan = false;
+        let currentLang = 'en';
+        let growthChartReal = null, tagsChart = null, sentimentChart = null;
+        let fuseSearch = null;
+        let currentFilter = 'all';
+        let webhooks = [];
+        let customFieldsSchema = []; // e.g., { name: 'Company', type: 'text' }
+        
+        // Calendar state
+        let currentDisplayMonth = new Date();
+        
+        // Voice recognition
+        let recognition = null;
+        let isListening = false;
+
+        const translations = {
+            en: { points: "Points", badgeExp: "Explorer", badgePro: "Pro Curator", badgeMaster: "Master" },
+            hi: { points: "अंक", badgeExp: "एक्सप्लोरर", badgePro: "प्रो क्यूरेटर", badgeMaster: "मास्टर" },
+            ur: { points: "پوائنٹس", badgeExp: "ایکسپلورر", badgePro: "پرو کیوریٹر", badgeMaster: "ماسٹر" }
+        };
+
+        // Helper: escape HTML
+        function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m] || m); }
+
+        // State persistence
+        function saveState() {
+            localStorage.setItem('nexus_vault', JSON.stringify(vaultUsers));
+            localStorage.setItem('nexus_tasks', JSON.stringify(tasks));
+            localStorage.setItem('nexus_points', points);
+            localStorage.setItem('nexus_activity', JSON.stringify(activityFeed));
+            localStorage.setItem('nexus_tags', JSON.stringify(globalTags));
+            localStorage.setItem('nexus_pro', proPlan);
+            localStorage.setItem('nexus_lang', currentLang);
+            localStorage.setItem('nexus_webhooks', JSON.stringify(webhooks));
+            localStorage.setItem('nexus_customFields', JSON.stringify(customFieldsSchema));
+        }
+
+        function loadState() {
+            try {
+                let v = localStorage.getItem('nexus_vault'); if(v) vaultUsers = JSON.parse(v);
+                let t = localStorage.getItem('nexus_tasks'); if(t) tasks = JSON.parse(t);
+                let p = localStorage.getItem('nexus_points'); if(p) points = parseInt(p);
+                let a = localStorage.getItem('nexus_activity'); if(a) activityFeed = JSON.parse(a);
+                let tg = localStorage.getItem('nexus_tags'); if(tg) globalTags = JSON.parse(tg);
+                let pro = localStorage.getItem('nexus_pro'); if(pro) proPlan = (pro === 'true');
+                let lang = localStorage.getItem('nexus_lang'); if(lang) currentLang = lang;
+                let wh = localStorage.getItem('nexus_webhooks'); if(wh) webhooks = JSON.parse(wh);
+                let cf = localStorage.getItem('nexus_customFields'); if(cf) customFieldsSchema = JSON.parse(cf);
+            } catch(e){}
+            updatePointsUI();
+            renderActivityLog();
+            renderWebhookList();
+            renderAll();
+            applyLanguage();
+        }
+
+        function pushUndo() { undoStack.push(JSON.parse(JSON.stringify(vaultUsers))); redoStack = []; }
+        function undo() { if(undoStack.length) { redoStack.push(JSON.parse(JSON.stringify(vaultUsers))); vaultUsers = undoStack.pop(); saveState(); renderAll(); addActivity('Undo'); } }
+        function redo() { if(redoStack.length) { undoStack.push(JSON.parse(JSON.stringify(vaultUsers))); vaultUsers = redoStack.pop(); saveState(); renderAll(); addActivity('Redo'); } }
+
+        function addActivity(msg) {
+            activityFeed.unshift({msg, time: new Date().toLocaleTimeString()});
+            if(activityFeed.length > 30) activityFeed.pop();
+            renderActivityLog();
+            saveState();
+            if(Notification.permission === 'granted') new Notification('NexusCRM', {body: msg});
+        }
+
+        function renderActivityLog() {
+            document.getElementById('activityLog').innerHTML = activityFeed.map(a => `<div>🕒 ${a.time} - ${escapeHtml(a.msg)}</div>`).join('');
+        }
+
+        function updatePointsUI() {
+            document.getElementById('userPoints').innerText = points;
+            let t = translations[currentLang] || translations.en;
+            let badge = points < 50 ? t.badgeExp : (points < 150 ? t.badgePro : t.badgeMaster);
+            document.getElementById('badgeArea').innerText = badge;
+        }
+
+        function updatePoints(delta) { points += delta; if(points<0) points=0; updatePointsUI(); saveState(); }
+
+        // Lead scoring (simple)
+        function calculateLeadScore(user) {
+            let score = 0;
+            if(user.tags?.includes('VIP')) score += 30;
+            if(user.tags?.includes('Enterprise')) score += 20;
+            if(user.status === 'Converted') score += 50;
+            if(user.notes?.length) score += user.notes.length * 5;
+            return Math.min(100, score);
+        }
+
+        // ========== RENDER VAULT ==========
+        function getFilteredUsers() {
+            let filtered = vaultUsers;
+            if(currentFilter === 'vip') filtered = vaultUsers.filter(u => u.tags?.includes('VIP'));
+            else if(currentFilter === 'lead') filtered = vaultUsers.filter(u => u.tags?.includes('Lead'));
+            else if(currentFilter === 'recent') {
+                let sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate()-7);
+                filtered = vaultUsers.filter(u => new Date(u.createdAt) > sevenDaysAgo);
+            }
+            let q = document.getElementById('searchVaultInput')?.value.trim();
+            if(q) {
+                if(!fuseSearch) fuseSearch = new Fuse(vaultUsers, {keys: ['name','email','tags'], threshold:0.3});
+                filtered = fuseSearch.search(q).map(r => r.item).filter(u => filtered.includes(u));
+            }
+            return filtered;
+        }
+
+        function renderVault() {
+            let filtered = getFilteredUsers();
+            let container = document.getElementById('vaultListContainer');
+            if(!container) return;
+            if(filtered.length === 0) { container.innerHTML = '<div class="glass-card">No users found</div>'; return; }
+            container.innerHTML = filtered.map(u => {
+                let score = calculateLeadScore(u);
+                return `<div class="user-row" data-id="${u.id}">
+                    <img src="${u.picture}" class="avatar-small" onerror="this.src='https://randomuser.me/api/portraits/lego/1.jpg'">
+                    <div class="user-info"><strong>${escapeHtml(u.name)}</strong> <span class="tag">🔥 ${score}</span><br>
+                    <small>${escapeHtml(u.email)}</small><div>${(u.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div></div>
+                    <div><button class="viewDetailBtn" data-id="${u.id}">👁️</button><button class="deleteUserBtn" data-id="${u.id}">🗑️</button></div>
+                </div>`;
+            }).join('');
+            document.querySelectorAll('.viewDetailBtn').forEach(btn => btn.addEventListener('click', ()=>{
+                let u = vaultUsers.find(x => x.id === btn.dataset.id); if(u) showUserDetail(u);
+            }));
+            document.querySelectorAll('.deleteUserBtn').forEach(btn => btn.addEventListener('click', ()=>{
+                if(confirm('Delete?')) { pushUndo(); vaultUsers = vaultUsers.filter(u => u.id !== btn.dataset.id); saveState(); renderAll(); updatePoints(-5); addActivity('User deleted'); }
+            }));
+            let t = translations[currentLang]; document.getElementById('vaultStats').innerHTML = `${vaultUsers.length} ${t.statsUsers} | ${t.points}: ${points}`;
+        }
+
+        // ========== TASKS & KANBAN ==========
+        function renderTasks() {
+            let container = document.getElementById('tasksList'); if(!container) return;
+            container.innerHTML = tasks.map(t => `<div class="user-row"><span>✅ ${escapeHtml(t.title)} | ${t.status} | Due: ${t.dueDate||'N/A'}</span><button class="deleteTaskBtn" data-id="${t.id}">🗑️</button></div>`).join('');
+            document.querySelectorAll('.deleteTaskBtn').forEach(b => b.addEventListener('click', ()=>{
+                tasks = tasks.filter(t => t.id != b.dataset.id); saveState(); renderTasks(); addActivity('Task deleted');
+            }));
+        }
+
+        function renderKanban() {
+            let leads = vaultUsers.filter(u => u.tags?.includes('Lead'));
+            let contacted = vaultUsers.filter(u => u.tags?.includes('Contacted'));
+            let converted = vaultUsers.filter(u => u.status === 'Converted' || u.tags?.includes('Converted'));
+            let board = document.getElementById('kanbanBoard');
+            board.innerHTML = `
+                <div class="kanban-col"><h3>🔵 Lead</h3><div class="kanban-dropzone" data-status="Lead">${leads.map(u=>`<div class="kanban-card" draggable="true" data-userid="${u.id}">${escapeHtml(u.name)}</div>`).join('')}</div></div>
+                <div class="kanban-col"><h3>🟡 Contacted</h3><div class="kanban-dropzone" data-status="Contacted">${contacted.map(u=>`<div class="kanban-card" draggable="true" data-userid="${u.id}">${escapeHtml(u.name)}</div>`).join('')}</div></div>
+                <div class="kanban-col"><h3>🟢 Converted</h3><div class="kanban-dropzone" data-status="Converted">${converted.map(u=>`<div class="kanban-card" draggable="true" data-userid="${u.id}">${escapeHtml(u.name)}</div>`).join('')}</div></div>`;
+            attachKanbanDrag();
+        }
+
+        function attachKanbanDrag() {
+            document.querySelectorAll('.kanban-card').forEach(c => c.addEventListener('dragstart', e => e.dataTransfer.setData('userid', c.dataset.userid)));
+            document.querySelectorAll('.kanban-dropzone').forEach(z => {
+                z.addEventListener('dragover', e => e.preventDefault());
+                z.addEventListener('drop', e => {
+                    e.preventDefault();
+                    let userId = e.dataTransfer.getData('userid');
+                    let newStatus = z.dataset.status;
+                    let user = vaultUsers.find(u => u.id == userId);
+                    if(user) {
+                        pushUndo();
+                        if(!user.tags) user.tags = [];
+                        if(newStatus === 'Lead') user.tags = [...new Set([...user.tags, 'Lead'])];
+                        else if(newStatus === 'Contacted') user.tags = [...new Set([...user.tags, 'Contacted'])];
+                        else if(newStatus === 'Converted') user.status = 'Converted';
+                        saveState(); renderKanban(); renderVault(); addActivity(`${user.name} moved to ${newStatus}`);
+                        computeAnalytics();
+                    }
+                });
+            });
+        }
+
+        // ========== AI & SENTIMENT ==========
+        function refreshAISelect() {
+            let sel = document.getElementById('aiUserSelect');
+            if(sel) sel.innerHTML = '<option value="">-- Select --</option>' + vaultUsers.map(u => `<option value="${u.id}">${escapeHtml(u.name)}</option>`).join('');
+        }
+
+        function analyzeSentiment() {
+            let text = document.getElementById('emailNoteInput').value;
+            let sentiment = text.match(/good|great|happy/i) ? 'Positive' : (text.match(/bad|issue|angry/i) ? 'Negative' : 'Neutral');
+            let display = sentiment === 'Positive' ? '😊 Positive' : (sentiment === 'Negative' ? '😞 Negative' : '😐 Neutral');
+            document.getElementById('sentimentResult').innerHTML = `<strong>Sentiment:</strong> ${display}`;
+            addActivity(`Sentiment: ${display}`);
+            // Store sentiment for trend
+            if(currentDetailUser) {
+                if(!currentDetailUser.sentimentHistory) currentDetailUser.sentimentHistory = [];
+                currentDetailUser.sentimentHistory.push({date: new Date().toISOString(), score: sentiment === 'Positive' ? 1 : (sentiment === 'Negative' ? -1 : 0)});
+                saveState();
+            }
+        }
+
+        // ========== CALENDAR ==========
+        function renderCalendar() {
+            let year = currentDisplayMonth.getFullYear(), month = currentDisplayMonth.getMonth();
+            let firstDay = new Date(year, month, 1).getDay();
+            let daysInMonth = new Date(year, month+1, 0).getDate();
+            document.getElementById('currentMonthDisplay').innerText = currentDisplayMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+            let grid = document.getElementById('calendarGrid');
+            let html = '';
+            for(let i=0; i<firstDay; i++) html += '<div class="cal-day"></div>';
+            for(let d=1; d<=daysInMonth; d++) {
+                let dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                let tasksOnDay = tasks.filter(t => t.dueDate === dateStr);
+                html += `<div class="cal-day"><strong>${d}</strong>${tasksOnDay.map(t => `<div style="font-size:0.7rem;">• ${escapeHtml(t.title)}</div>`).join('')}</div>`;
+            }
+            grid.innerHTML = html;
+        }
+
+        // ========== ANALYTICS ==========
+        function computeAnalytics() {
+            // Growth chart
+            let dates = vaultUsers.map(u => new Date(u.createdAt).toLocaleDateString());
+            let counts = {}; dates.forEach(d => counts[d] = (counts[d]||0)+1);
+            let labels = Object.keys(counts).slice(-7), data = labels.map(l => counts[l]);
+            if(growthChartReal) growthChartReal.destroy();
+            let ctx = document.getElementById('realGrowthChart').getContext('2d');
+            growthChartReal = new Chart(ctx, {type:'line', data:{labels, datasets:[{label:'New Users',data,borderColor:getComputedStyle(document.body).getPropertyValue('--primary')}]}});
+
+            // Tags chart
+            let tagFreq = {}; vaultUsers.forEach(u => (u.tags||[]).forEach(t => tagFreq[t] = (tagFreq[t]||0)+1));
+            let sorted = Object.entries(tagFreq).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            if(tagsChart) tagsChart.destroy();
+            let ctx2 = document.getElementById('topTagsChart').getContext('2d');
+            tagsChart = new Chart(ctx2, {type:'bar', data:{labels:sorted.map(s=>s[0]), datasets:[{label:'Frequency',data:sorted.map(s=>s[1])}]}});
+
+            // Sentiment trend
+            let allSentiment = vaultUsers.flatMap(u => u.sentimentHistory || []);
+            let trendData = {}; allSentiment.forEach(s => { let d = new Date(s.date).toLocaleDateString(); trendData[d] = (trendData[d]||0) + s.score; });
+            let sentLabels = Object.keys(trendData).slice(-7), sentVals = sentLabels.map(l => trendData[l]);
+            if(sentimentChart) sentimentChart.destroy();
+            let ctx3 = document.getElementById('sentimentTrendChart').getContext('2d');
+            sentimentChart = new Chart(ctx3, {type:'line', data:{labels:sentLabels, datasets:[{label:'Sentiment Score',data:sentVals}]}});
+
+            // Conversion rate
+            let leads = vaultUsers.filter(u => u.tags?.includes('Lead')).length;
+            let converted = vaultUsers.filter(u => u.status === 'Converted').length;
+            document.getElementById('conversionRate').innerText = leads ? ((converted/leads)*100).toFixed(1) : '0';
+        }
+
+        // ========== USER DETAIL & CUSTOM FIELDS ==========
+        let currentDetailUser = null;
+        function showUserDetail(user) {
+            currentDetailUser = user;
+            document.getElementById('detailUserName').innerText = user.name;
+            document.getElementById('userAvatarDetail').innerHTML = `<img src="${user.picture}" width="80" style="border-radius:50%">`;
+            renderCustomFields(user);
+            document.getElementById('userNotesList').innerHTML = (user.notes||[]).map(n => `<div>📝 ${escapeHtml(n.text)} <small>${n.date}</small></div>`).join('');
+            document.getElementById('userTimeline').innerHTML = (user.timeline||[]).map(t => `<div>⏱️ ${t.time} - ${escapeHtml(t.action)}</div>`).join('');
+            document.getElementById('userDetailModal').classList.remove('hidden');
+        }
+
+        function renderCustomFields(user) {
+            let container = document.getElementById('customFieldsContainer');
+            if(!user.customFields) user.customFields = {};
+            container.innerHTML = customFieldsSchema.map(field => {
+                let val = user.customFields[field.name] || '';
+                return `<div><label>${field.name}:</label> <input type="text" data-field="${field.name}" value="${escapeHtml(val)}" style="width:60%"></div>`;
+            }).join('');
+            container.querySelectorAll('input').forEach(inp => inp.addEventListener('change', e => {
+                if(currentDetailUser) {
+                    currentDetailUser.customFields[inp.dataset.field] = inp.value;
+                    saveState();
+                }
+            }));
+        }
+
+        // ========== COMMAND PALETTE ==========
+        function openCommandPalette() {
+            document.getElementById('cmdPalette').classList.remove('hidden');
+            document.getElementById('cmdInput').focus();
+        }
+        function filterCommands(query) {
+            let commands = [
+                { name: 'Go to Generator', action: ()=>switchTab('generator') },
+                { name: 'Go to Vault', action: ()=>switchTab('vault') },
+                { name: 'Go to Analytics', action: ()=>switchTab('analytics') },
+                { name: 'Add Random User', action: ()=>loadRandom() },
+                { name: 'Export PDF', action: ()=>document.getElementById('exportFullBtn').click() },
+                { name: 'Toggle Dark Mode', action: ()=>document.body.classList.toggle('dark') },
+            ];
+            let results = commands.filter(c => c.name.toLowerCase().includes(query.toLowerCase()));
+            let html = results.map(c => `<div class="cmd-item" data-action="${c.name}">${c.name}</div>`).join('');
+            document.getElementById('cmdResults').innerHTML = html || '<div>No commands</div>';
+            document.querySelectorAll('.cmd-item').forEach(el => el.addEventListener('click', ()=>{
+                let cmd = commands.find(c => c.name === el.dataset.action);
+                if(cmd) { cmd.action(); document.getElementById('cmdPalette').classList.add('hidden'); }
+            }));
+        }
+
+        // ========== CSV IMPORT/EXPORT ==========
+        function exportToCSV() {
+            let csv = Papa.unparse(vaultUsers.map(u => ({
+                name: u.name, email: u.email, tags: (u.tags||[]).join(','), status: u.status||''
+            })));
+            let blob = new Blob([csv], {type: 'text/csv'});
+            let a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'nexus_users.csv'; a.click();
+        }
+
+        function importFromCSV(file) {
+            Papa.parse(file, {
+                header: true,
+                complete: (results) => {
+                    pushUndo();
+                    results.data.forEach(row => {
+                        if(row.name && row.email) {
+                            vaultUsers.push({
+                                id: 'csv_'+Date.now()+Math.random(),
+                                name: row.name, email: row.email,
+                                tags: row.tags ? row.tags.split(',') : [],
+                                status: row.status || 'Lead',
+                                picture: 'https://randomuser.me/api/portraits/lego/1.jpg',
+                                createdAt: new Date().toISOString()
+                            });
+                        }
+                    });
+                    saveState(); renderAll(); addActivity(`Imported ${results.data.length} users`);
+                }
+            });
+        }
+
+        // ========== VOICE ==========
+        function initVoice() {
+            if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.onresult = (e) => {
+                let transcript = e.results[0][0].transcript;
+                document.getElementById('voiceTranscript').innerText = transcript;
+                if(currentDetailUser) {
+                    if(!currentDetailUser.notes) currentDetailUser.notes = [];
+                    currentDetailUser.notes.push({text: transcript, date: new Date().toLocaleString()});
+                    saveState(); showUserDetail(currentDetailUser);
+                }
+                addActivity('Voice note added');
+            };
+            recognition.onend = () => { isListening = false; document.getElementById('startVoiceBtn').disabled = false; document.getElementById('stopVoiceBtn').disabled = true; };
+        }
+
+        // ========== RENDER ALL & INIT ==========
+        function renderAll() {
+            renderVault(); renderTasks(); renderKanban(); refreshAISelect(); renderTagCloud(); computeAnalytics(); renderCalendar();
+        }
+
+        function renderTagCloud() {
+            let container = document.getElementById('tagCloud');
+            if(!container) return;
+            container.innerHTML = globalTags.map(t => `<span class="tag">${t} <button class="removeTagBtn" data-tag="${t}" style="background:transparent;border:none;">✖</button></span>`).join('');
+            document.querySelectorAll('.removeTagBtn').forEach(b => b.addEventListener('click', ()=>{
+                globalTags = globalTags.filter(t => t !== b.dataset.tag); saveState(); renderTagCloud();
+            }));
+        }
+
+        function renderWebhookList() {
+            let cont = document.getElementById('webhookList');
+            if(cont) cont.innerHTML = webhooks.map((url,i) => `<div>${url} <button data-index="${i}" class="removeWebhookBtn">✖</button></div>`).join('');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active-panel'));
+            document.getElementById(tabId+'Panel').classList.add('active-panel');
+            document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+            document.querySelector(`.nav-tab[data-tab="${tabId}"]`).classList.add('active');
+            if(tabId === 'analytics') computeAnalytics();
+            if(tabId === 'calendar') renderCalendar();
+        }
+
+        function applyLanguage() {
+            let t = translations[currentLang] || translations.en;
+            updatePointsUI();
+            document.getElementById('langStatus') ? document.getElementById('langStatus').innerText = `Current: ${currentLang}` : null;
+        }
+
+        // ========== EVENT BINDING ==========
+        function bindEvents() {
+            // Core
+            document.getElementById('loadRandomBtn').addEventListener('click', loadRandom);
+            document.getElementById('quickSaveBtn').addEventListener('click', quickSave);
+            document.getElementById('applyTagsBtn').addEventListener('click', ()=>{
+                if(currentUserGen) { currentUserGen.tags = document.getElementById('quickTags').value.split(',').map(s=>s.trim()); addActivity('Tags applied'); }
+            });
+            document.getElementById('bulkDeleteBtn').addEventListener('click', ()=>{ if(confirm('Delete all filtered?')){ pushUndo(); vaultUsers = []; saveState(); renderAll(); } });
+            document.getElementById('bulkTagBtn').addEventListener('click', ()=>{
+                let tag = prompt('Enter tag'); if(tag) { pushUndo(); vaultUsers.forEach(u => { if(!u.tags.includes(tag)) u.tags.push(tag); }); saveState(); renderAll(); }
+            });
+            document.getElementById('addTaskBtn').addEventListener('click', ()=>{
+                let title = document.getElementById('newTaskTitle').value.trim();
+                if(title) { tasks.push({id:Date.now(), title, status: document.getElementById('taskStatusSelect').value, dueDate: document.getElementById('taskDueDate').value}); saveState(); renderTasks(); }
+            });
+            document.getElementById('analyzeSentimentBtn').addEventListener('click', analyzeSentiment);
+            document.getElementById('aiUserSelect').addEventListener('change', e => {
+                let u = vaultUsers.find(u => u.id === e.target.value); if(u) {
+                    document.getElementById('aiBestTags').innerText = `🏷️ Best: ${globalTags.filter(t=>!u.tags?.includes(t)).slice(0,3).join(', ')}`;
+                }
+            });
+            document.getElementById('undoBtn').addEventListener('click', undo);
+            document.getElementById('redoBtn').addEventListener('click', redo);
+            document.getElementById('darkToggleBtn').addEventListener('click', ()=>document.body.classList.toggle('dark'));
+            document.getElementById('exportFullBtn').addEventListener('click', ()=> html2pdf().from(document.getElementById('vaultListContainer')).save());
+            document.getElementById('logoutBtnMain').addEventListener('click', ()=>{ localStorage.clear(); location.reload(); });
+            document.getElementById('cmdPaletteBtn').addEventListener('click', openCommandPalette);
+            document.getElementById('cmdInput').addEventListener('input', e => filterCommands(e.target.value));
+            document.getElementById('cmdPalette').addEventListener('click', e => { if(e.target.id === 'cmdPalette') e.target.classList.add('hidden'); });
+            // Filter presets
+            document.querySelectorAll('.filter-preset').forEach(b => b.addEventListener('click', ()=>{
+                currentFilter = b.dataset.filter; renderVault();
+            }));
+            // CSV
+            document.getElementById('exportCSVBtn').addEventListener('click', exportToCSV);
+            document.getElementById('importCSVBtn').addEventListener('click', ()=>{
+                let input = document.createElement('input'); input.type='file'; input.accept='.csv';
+                input.onchange = e => importFromCSV(e.target.files[0]);
+                input.click();
+            });
+            // Voice
+            document.getElementById('startVoiceBtn').addEventListener('click', ()=>{
+                if(recognition) { recognition.start(); isListening = true; document.getElementById('startVoiceBtn').disabled = true; document.getElementById('stopVoiceBtn').disabled = false; }
+            });
+            document.getElementById('stopVoiceBtn').addEventListener('click', ()=>{ if(recognition) recognition.stop(); });
+            // Calendar nav
+            document.getElementById('prevMonthBtn').addEventListener('click', ()=>{ currentDisplayMonth.setMonth(currentDisplayMonth.getMonth()-1); renderCalendar(); });
+            document.getElementById('nextMonthBtn').addEventListener('click', ()=>{ currentDisplayMonth.setMonth(currentDisplayMonth.getMonth()+1); renderCalendar(); });
+            // White-label
+            document.getElementById('applyThemeBtn').addEventListener('click', ()=>{
+                let color = document.getElementById('primaryColorPicker').value;
+                document.documentElement.style.setProperty('--primary', color);
+                let logo = document.getElementById('logoTextInput').value;
+                document.getElementById('logoText').innerText = logo;
+                document.querySelector('.top-bar h1').innerHTML = `${logo} · Enterprise AI`;
+            });
+            // Webhooks
+            document.getElementById('addWebhookBtn').addEventListener('click', ()=>{
+                let url = document.getElementById('webhookUrlInput').value.trim();
+                if(url) { webhooks.push(url); saveState(); renderWebhookList(); }
+            });
+            document.getElementById('testWebhookBtn').addEventListener('click', ()=>{
+                webhooks.forEach(url => fetch(url, {method:'POST', body: JSON.stringify({event:'test', timestamp: new Date()})}).catch(console.warn));
+                addActivity('Webhooks triggered');
+            });
+            // Custom fields add
+            document.getElementById('addCustomFieldBtn').addEventListener('click', ()=>{
+                let name = prompt('Field name'); if(name) { customFieldsSchema.push({name, type:'text'}); saveState(); if(currentDetailUser) renderCustomFields(currentDetailUser); }
+            });
+            // Close modal
+            document.getElementById('closeDetailModal').addEventListener('click', ()=>document.getElementById('userDetailModal').classList.add('hidden'));
+            // Add note
+            document.getElementById('addNoteBtn').addEventListener('click', ()=>{
+                let txt = document.getElementById('userNoteInput').value; if(txt && currentDetailUser) {
+                    if(!currentDetailUser.notes) currentDetailUser.notes = [];
+                    currentDetailUser.notes.push({text: txt, date: new Date().toLocaleString()});
+                    saveState(); showUserDetail(currentDetailUser);
+                }
+            });
+            // Navigation
+            document.querySelectorAll('.nav-tab').forEach(b => b.addEventListener('click', ()=>switchTab(b.dataset.tab)));
+            // Language
+            document.getElementById('langEn').addEventListener('click', ()=>{ currentLang='en'; applyLanguage(); });
+            document.getElementById('langHi').addEventListener('click', ()=>{ currentLang='hi'; applyLanguage(); });
+            document.getElementById('langUr').addEventListener('click', ()=>{ currentLang='ur'; applyLanguage(); });
+            // Pro upgrade
+            document.getElementById('upgradeProBtn').addEventListener('click', ()=>{ proPlan=true; document.getElementById('planBadge').innerText='⭐ Pro'; saveState(); });
+        }
+
+        async function loadRandom() {
+            try {
+                let res = await fetch('https://randomuser.me/api/');
+                let data = await res.json();
+                let raw = data.results[0];
+                currentUserGen = {
+                    id: raw.login.uuid, name: `${raw.name.first} ${raw.name.last}`, email: raw.email,
+                    picture: raw.picture.large, phone: raw.phone, location: `${raw.location.city}, ${raw.location.country}`,
+                    tags: [], createdAt: new Date().toISOString(), status: 'Lead', notes: [], timeline: [{time: new Date().toLocaleString(), action:'Generated'}]
+                };
+                document.getElementById('genProfileArea').innerHTML = `<img src="${currentUserGen.picture}" width="110" style="border-radius:50%;"><h2>${escapeHtml(currentUserGen.name)}</h2><p>📧 ${currentUserGen.email}</p>`;
+                document.getElementById('leadScoreDisplay').innerText = calculateLeadScore(currentUserGen);
+            } catch(e) {}
+        }
+
+        function quickSave() {
+            if(!currentUserGen) return;
+            if(vaultUsers.some(u => u.id === currentUserGen.id)) return;
+            pushUndo(); vaultUsers.push({...currentUserGen}); saveState(); renderAll(); updatePoints(10); addActivity(`Added ${currentUserGen.name}`);
+        }
+
+        // ========== INIT FLOW ==========
+        function showIntro(){ document.getElementById('introScreen').classList.remove('hidden'); document.getElementById('loginScreen').classList.add('hidden'); document.getElementById('mainApp').style.display='none'; }
+        function showLogin(){ document.getElementById('introScreen').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden'); }
+        function showMain(){ document.getElementById('introScreen').classList.add('hidden'); document.getElementById('loginScreen').classList.add('hidden'); document.getElementById('mainApp').style.display='flex'; loadState(); bindEvents(); loadRandom(); initVoice(); }
+        document.getElementById('gotoLoginBtn').onclick = showLogin;
+        document.getElementById('performLoginBtn').onclick = ()=>{
+            let u = document.getElementById('loginUsername').value, p = document.getElementById('loginPassword').value;
+            if(u && p) showMain(); else document.getElementById('loginErrorMsg').innerText = 'Enter credentials';
+        };
+        if(Notification.permission !== 'denied') Notification.requestPermission();
+        showIntro();
+    })();
+</script>
+</body>
+</html>
